@@ -1,12 +1,4 @@
-import React from 'react'
-
-const MetadataForm = () => {
-  return (
-    <div>MetadataForm</div>
-  )
-}
-
-export default MetadataFormimport { useContext, useState } from 'react'
+import React, { useContext, useState } from 'react'
 import { Web3Context } from '../../contexts/Web3Context'
 import Button from '../common/Button'
 import Input from '../common/Input'
@@ -21,9 +13,9 @@ const MetadataForm = () => {
     e.preventDefault()
     try {
       await setMetadataURI(web3, account, newURI)
-      toast.success('Metadata URI updated successfully')
+      toast.success('Metadata URI updated successfully.')
     } catch (error) {
-      toast.error('Failed to update metadata URI')
+      toast.error('Failed to update Metadata URI.')
     }
   }
 
