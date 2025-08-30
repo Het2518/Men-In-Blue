@@ -16,6 +16,7 @@ const Header = () => {
     { name: 'Marketplace', href: '/marketplace' },
     { name: 'Credits', href: '/credits' },
     { name: 'Analytics', href: '/analytics' },
+    { name: 'Profile', href: '/profile' },
   ];
 
   const handleLogout = () => {
@@ -40,7 +41,7 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:space-x-8">
-            {isAuthenticated && navigation.map((item) => (
+            {navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -130,7 +131,7 @@ const Header = () => {
         {mobileMenuOpen && (
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 border-t border-gray-200">
-              {isAuthenticated && navigation.map((item) => (
+              {navigation.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
