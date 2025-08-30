@@ -1,15 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useWallet } from './WalletContext';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import useWallet from '../hooks/useWallet';
 
-const AuthContext = createContext({});
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -17,54 +9,39 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { account, isConnected } = useWallet();
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, [account, isConnected]);
-
-  const checkAuthStatus = async () => {
-    try {
-      setLoading(true);
-
-      if (!isConnected || !account) {
-        setUser(null);
-        setIsAuthenticated(false);
-        return;
-      }
-
-      // Check if user exists in localStorage (for demo purposes)
-      // In production, you'd validate with your backend
-      const userData = localStorage.getItem(`user_${account}`);
-
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
+  // Check authentication status when wallet changes
+  const checkAuthStatus = useCallback(() => {
+    setLoading(true);
+    if (!isConnected || !account) {
       setUser(null);
       setIsAuthenticated(false);
-    } finally {
       setLoading(false);
+      return;
     }
-  };
-
-  const login = async (userData) => {
-    try {
-      // Store user data
-      localStorage.setItem(`user_${account}`, JSON.stringify(userData));
-      setUser(userData);
+    const userData = localStorage.getItem(`user_${account}`);
+    if (userData) {
+      setUser(JSON.parse(userData));
       setIsAuthenticated(true);
-      return { success: true };
-    } catch (error) {
-      console.error('Login failed:', error);
-      return { success: false, error: error.message };
+    } else {
+      setUser(null);
+      setIsAuthenticated(false);
     }
+    setLoading(false);
+  }, [account, isConnected]);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
+
+  // Login function
+  const login = async (userData) => {
+    localStorage.setItem(`user_${account}`, JSON.stringify(userData));
+    setUser(userData);
+    setIsAuthenticated(true);
+    return { success: true };
   };
 
+  // Logout function
   const logout = () => {
     if (account) {
       localStorage.removeItem(`user_${account}`);
@@ -73,6 +50,7 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
+  // Update user function
   const updateUser = (updatedData) => {
     const newUser = { ...user, ...updatedData };
     setUser(newUser);
@@ -88,7 +66,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     updateUser,
-    checkAuthStatus
+    checkAuthStatus,
   };
 
   return (
@@ -97,3 +75,14 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+// Custom hook to use AuthContext
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export default AuthProvider;
