@@ -1,4 +1,8 @@
-export const formatAddress = (address) => {
-  if (!address) return ''
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
+export const truncateAddress = (address) => {
+  if (!address) return '';
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+export const formatNumber = (number) => {
+  return Number(number).toLocaleString();
+};

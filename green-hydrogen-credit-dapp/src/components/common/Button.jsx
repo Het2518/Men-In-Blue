@@ -1,13 +1,14 @@
-const Button = ({ children, type = 'button', className = '', ...props }) => {
+import React from 'react';
+
+const Button = ({ children, className, ...props }) => {
   return (
     <button
-      type={type}
-      className={`bg-eco-green text-white px-6 py-3 rounded-lg hover:bg-opacity-90 transition-all animate-pulse-glow ${className}`}
+      className={`bg-gradient-to-r from-hydrogen-cyan to-hydrogen-blue text-white font-semibold py-3 px-6 rounded-lg hover:from-hydrogen-blue hover:to-hydrogen-purple transition-all duration-300 animate-pulse shadow-neon ${className}`}
       {...props}
     >
       {children}
     </button>
-  )
-}
+  );
+};
 
-export default Button
+export default Button;
