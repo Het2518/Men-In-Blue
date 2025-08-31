@@ -1,21 +1,25 @@
 import React from 'react';
-import { useWeb3 } from '../../contexts/Web3Context';
+import { useUser } from '@clerk/clerk-react';
+import { useWeb3 } from '../../hooks/useWeb3';
 import Button from './Button';
 import { formatAddress, formatBalance } from '../../utils/format';
 import './WalletConnection.css';
 
 const WalletConnection = () => {
+  const { user } = useUser();
   const {
     isConnected,
     account,
     balance,
     networkName,
     isConnecting,
-    isDevelopmentMode,
     connectToMetaMask,
     disconnectWallet,
     roles
   } = useWeb3();
+
+  // Get user role from Clerk
+  const userRole = user?.publicMetadata?.role || 'buyer';
 
   const getRoleDisplay = () => {
     if (!roles || Object.keys(roles).length === 0) return 'No roles assigned';
@@ -32,14 +36,12 @@ const WalletConnection = () => {
   const getConnectionStatus = () => {
     if (isConnecting) return 'Connecting...';
     if (isConnected) return 'Connected';
-    if (isDevelopmentMode) return 'Development Mode';
     return 'Not Connected';
   };
 
   const getStatusColor = () => {
     if (isConnecting) return 'orange';
     if (isConnected) return 'green';
-    if (isDevelopmentMode) return 'blue';
     return 'red';
   };
 
@@ -55,39 +57,32 @@ const WalletConnection = () => {
             <span className="status-text">{getConnectionStatus()}</span>
           </div>
 
-          {!isDevelopmentMode && (
-            <div className="connection-info">
-              <p className="info-text">
-                Connect your MetaMask wallet to interact with the Green Hydrogen Credit system
-              </p>
-            </div>
-          )}
+          <div className="connection-info">
+            <p className="info-text">
+              Connect your MetaMask wallet to interact with the Green Hydrogen Credit system.
+              You are signed in as {user?.firstName} {user?.lastName} with {userRole} privileges.
+            </p>
+          </div>
         </div>
 
         <div className="connection-actions">
-          {!isDevelopmentMode ? (
-            <Button
-              onClick={connectToMetaMask}
-              disabled={isConnecting}
-              variant="primary"
-              className="connect-button"
-            >
-              {isConnecting ? (
-                <>
-                  <span className="loading-spinner" />
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  🦊 Connect MetaMask
-                </>
-              )}
-            </Button>
-          ) : (
-            <div className="dev-mode-info">
-              <p>Development mode - using mock wallet</p>
-            </div>
-          )}
+          <Button
+            onClick={connectToMetaMask}
+            disabled={isConnecting}
+            variant="primary"
+            className="connect-button"
+          >
+            {isConnecting ? (
+              <>
+                <span className="loading-spinner" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                🦊 Connect MetaMask
+              </>
+            )}
+          </Button>
         </div>
       </div>
     );
@@ -104,16 +99,14 @@ const WalletConnection = () => {
           <span className="status-text">{getConnectionStatus()}</span>
         </div>
 
-        {!isDevelopmentMode && (
-          <Button
-            onClick={disconnectWallet}
-            variant="outline"
-            size="sm"
-            className="disconnect-button"
-          >
-            Disconnect
-          </Button>
-        )}
+        <Button
+          onClick={disconnectWallet}
+          variant="outline"
+          size="sm"
+          className="disconnect-button"
+        >
+          Disconnect
+        </Button>
       </div>
 
       <div className="wallet-info">
@@ -144,13 +137,14 @@ const WalletConnection = () => {
             {getRoleDisplay()}
           </span>
         </div>
-      </div>
 
-      {isDevelopmentMode && (
-        <div className="dev-mode-badge">
-          <span>🧪 Development Mode</span>
+        <div className="info-row">
+          <label>User:</label>
+          <span className="user-info">
+            {user?.firstName} {user?.lastName} ({userRole})
+          </span>
         </div>
-      )}
+      </div>
     </div>
   );
 };

@@ -1,4 +1,5 @@
-import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import Web3 from 'web3';
 import { initContract, checkRoles } from '../utils/contract';
 import { metaMaskService, formatAddress, formatBalance } from '../utils/metamask';
@@ -6,22 +7,9 @@ import { toast } from 'react-toastify';
 
 const Web3Context = createContext();
 
-// Development mode flag - read from environment
-const DEVELOPMENT_MODE = import.meta.env.VITE_DEVELOPMENT_MODE === 'true' ||
-  import.meta.env.DEV ||
-  import.meta.env.MODE === 'development';
-
-// Mock data for development
-const MOCK_DATA = {
-  account: '0x742d35Cc5aF7482C6d2a5d5B0E8eE73c7D8a0Cd1',
-  roles: { isProducer: true, isBuyer: true, isCertifier: true, isAdmin: true },
-  balance: '1250.5678',
-  tokenId: '1',
-  networkId: '1',
-  networkName: 'Ethereum Mainnet (Mock)'
-};
-
 export const Web3Provider = ({ children }) => {
+  const { user, isSignedIn } = useUser();
+
   const [web3, setWeb3] = useState(null);
   const [account, setAccount] = useState(null);
   const [contract, setContract] = useState(null);
@@ -36,34 +24,29 @@ export const Web3Provider = ({ children }) => {
   const [networkName, setNetworkName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [isDevelopmentMode, setIsDevelopmentMode] = useState(DEVELOPMENT_MODE);
 
-  // Development mode initialization
-  const initDevelopmentMode = useCallback(() => {
-    console.log('🚀 Initializing Development Mode');
-    setAccount(MOCK_DATA.account);
-    setRoles(MOCK_DATA.roles);
-    setBalance(MOCK_DATA.balance);
-    setNetworkId(MOCK_DATA.networkId);
-    setNetworkName(MOCK_DATA.networkName);
-    setWeb3({ mockWeb3: true }); // Mock web3 object
-    setIsConnected(true);
+  // Get user roles based on Clerk user metadata
+  const getUserRoles = useCallback(() => {
+    if (!user) return { isProducer: false, isBuyer: false, isCertifier: false, isAdmin: false };
 
-    toast.success(
-      <div>
-        <strong>🚀 Development Mode Active</strong>
-        <br />
-        Connected as: {formatAddress(MOCK_DATA.account)}
-        <br />
-        Balance: {formatBalance(MOCK_DATA.balance)} ETH
-      </div>
-    );
-  }, []);
+    const userRole = user.publicMetadata?.role || 'buyer'; // Default to buyer
 
-  // Production mode initialization
-  const initProductionMode = useCallback(async () => {
-    console.log('🔧 Initializing Production Mode');
+    return {
+      isProducer: userRole === 'producer' || userRole === 'admin',
+      isBuyer: userRole === 'buyer' || userRole === 'admin',
+      isCertifier: userRole === 'certifier' || userRole === 'admin',
+      isAdmin: userRole === 'admin'
+    };
+  }, [user]);
 
+  // Connect to MetaMask
+  const connectToMetaMask = useCallback(async () => {
+    if (!isSignedIn) {
+      toast.error('Please sign in first to connect your wallet');
+      return;
+    }
+
+    console.log('🦊 Connecting to MetaMask for user:', user.emailAddresses[0]?.emailAddress);
     setIsConnecting(true);
 
     try {
@@ -74,73 +57,11 @@ export const Web3Provider = ({ children }) => {
         return;
       }
 
-      // Initialize Web3
-      const initResult = await metaMaskService.initialize();
-      if (!initResult.success) {
-        throw new Error(initResult.error);
-      }
-
-      // Get existing accounts without requesting permission
-      const accountsResult = await metaMaskService.getAccounts();
-
-      if (accountsResult.success && accountsResult.accounts.length > 0) {
-        // User is already connected, check connection without requesting permission
-        console.log('Existing MetaMask connection found');
-        toast.info('MetaMask wallet detected. Click "Connect Wallet" to continue.');
-      } else {
-        // User needs to connect
-        console.log('MetaMask ready, waiting for user to connect...');
-        toast.info(
-          <div>
-            <strong>MetaMask Ready!</strong>
-            <br />
-            Click "Connect Wallet" to continue
-          </div>
-        );
-      }
-    } catch (error) {
-      console.error('Production mode initialization failed:', error);
-      toast.error(`Failed to initialize: ${error.message}`);
-    } finally {
-      setIsConnecting(false);
-    }
-  }, []);
-
-  // Connect to MetaMask
-  const connectToMetaMaskInternal = useCallback(async (requestPermission = true) => {
-    console.log('🔧 Starting MetaMask connection process...');
-    setIsConnecting(true);
-
-    try {
-      let connectionResult;
-
-      if (requestPermission) {
-        // Request new connection
-        connectionResult = await metaMaskService.connect();
-      } else {
-        // Check existing connection
-        const accountsResult = await metaMaskService.getAccounts();
-        if (accountsResult.success && accountsResult.accounts.length > 0) {
-          const balanceResult = await metaMaskService.getBalance(accountsResult.accounts[0]);
-          connectionResult = {
-            success: true,
-            account: accountsResult.accounts[0],
-            accounts: accountsResult.accounts,
-            balance: balanceResult.success ? balanceResult.balance : '0'
-          };
-        } else {
-          connectionResult = { success: false, error: 'No accounts found' };
-        }
-      }
+      // Connect to MetaMask
+      const connectionResult = await metaMaskService.connect();
 
       if (!connectionResult.success) {
         throw new Error(connectionResult.error);
-      }
-
-      if (connectionResult.isDevelopment) {
-        // Handle development mode
-        initDevelopmentMode();
-        return;
       }
 
       // Set account info
@@ -160,14 +81,21 @@ export const Web3Provider = ({ children }) => {
 
         if (contractInstance.isDemo) {
           toast.info(
-            `🧪 Demo Mode: Using mock contract functionality.
-            ${contractInstance.error ? 'Reason: ' + contractInstance.error : 'Contract not deployed at specified address.'}`
+            `🧪 Demo Mode: Using mock contract functionality. ${contractInstance.error ? 'Reason: ' + contractInstance.error : 'Contract not deployed at specified address.'}`
           );
         }
 
-        // Check user roles
-        const userRoles = await checkRoles(web3Instance, connectionResult.account);
-        setRoles(userRoles);
+        // Check user roles from contract
+        const contractRoles = await checkRoles(web3Instance, connectionResult.account);
+
+        // Combine Clerk roles with contract roles
+        const clerkRoles = getUserRoles();
+        setRoles({
+          isProducer: clerkRoles.isProducer || contractRoles.isProducer,
+          isBuyer: clerkRoles.isBuyer || contractRoles.isBuyer,
+          isCertifier: clerkRoles.isCertifier || contractRoles.isCertifier,
+          isAdmin: clerkRoles.isAdmin || contractRoles.isAdmin
+        });
 
         // Set up contract event listeners only for real contracts
         if (contractInstance && !contractInstance.isDemo) {
@@ -193,17 +121,16 @@ export const Web3Provider = ({ children }) => {
         console.error('Contract initialization failed:', contractError);
         toast.warning('Connected to MetaMask, but contract not available. Using demo mode.');
 
-        // Set demo roles
-        setRoles({
-          isProducer: true,
-          isBuyer: true,
-          isCertifier: true,
-          isAdmin: true
-        });
-      }      // Success toast
+        // Set roles based on Clerk user data
+        setRoles(getUserRoles());
+      }
+
+      // Success toast
       toast.success(
         <div>
           <strong>✅ Connected to MetaMask!</strong>
+          <br />
+          User: {user.firstName} {user.lastName}
           <br />
           Account: {formatAddress(connectionResult.account)}
           <br />
@@ -223,22 +150,7 @@ export const Web3Provider = ({ children }) => {
     } finally {
       setIsConnecting(false);
     }
-  }, [initDevelopmentMode]);
-
-  // Connect to MetaMask (public method)
-  const connectToMetaMask = useCallback(async () => {
-    console.log('🦊 Connect button clicked!');
-    console.log('MetaMask installed:', metaMaskService.isMetaMaskInstalled());
-    console.log('Development mode:', isDevelopmentMode);
-
-    if (!metaMaskService.isMetaMaskInstalled()) {
-      console.warn('MetaMask not installed');
-      metaMaskService.showInstallPrompt();
-      return;
-    }
-
-    return connectToMetaMaskInternal(true);
-  }, [connectToMetaMaskInternal, isDevelopmentMode]);
+  }, [isSignedIn, user, getUserRoles]);
 
   // Disconnect from MetaMask
   const disconnectWallet = useCallback(() => {
@@ -251,44 +163,20 @@ export const Web3Provider = ({ children }) => {
     setNetworkId(null);
     setNetworkName('');
     setIsConnected(false);
+
+    toast.info('Wallet disconnected');
   }, []);
 
-  // Switch between development and production mode
-  const toggleMode = useCallback(() => {
-    const newMode = !isDevelopmentMode;
-    setIsDevelopmentMode(newMode);
-
-    // Reset all state
-    disconnectWallet();
-
-    toast.info(`Switched to ${newMode ? 'Development' : 'Production'} mode`);
-
-    // Reinitialize with new mode
-    setTimeout(() => {
-      if (newMode) {
-        initDevelopmentMode();
-      } else {
-        initProductionMode();
-      }
-    }, 100);
-  }, [isDevelopmentMode, disconnectWallet, initDevelopmentMode, initProductionMode]);
-
-  // Initialize on mount
+  // Auto-disconnect wallet when user signs out
   useEffect(() => {
-    const init = async () => {
-      if (isDevelopmentMode) {
-        initDevelopmentMode();
-      } else {
-        await initProductionMode();
-      }
-    };
-
-    init();
-  }, [isDevelopmentMode, initDevelopmentMode, initProductionMode]); // Run when dependencies change
+    if (!isSignedIn && isConnected) {
+      disconnectWallet();
+    }
+  }, [isSignedIn, isConnected, disconnectWallet]);
 
   // Set up MetaMask event listeners
   useEffect(() => {
-    if (!isDevelopmentMode && metaMaskService.isMetaMaskInstalled()) {
+    if (isConnected && metaMaskService.isMetaMaskInstalled()) {
       // Account changes
       metaMaskService.onAccountsChanged((accounts) => {
         if (accounts.length === 0) {
@@ -303,7 +191,15 @@ export const Web3Provider = ({ children }) => {
           });
 
           if (web3) {
-            checkRoles(web3, accounts[0]).then(setRoles);
+            checkRoles(web3, accounts[0]).then(contractRoles => {
+              const clerkRoles = getUserRoles();
+              setRoles({
+                isProducer: clerkRoles.isProducer || contractRoles.isProducer,
+                isBuyer: clerkRoles.isBuyer || contractRoles.isBuyer,
+                isCertifier: clerkRoles.isCertifier || contractRoles.isCertifier,
+                isAdmin: clerkRoles.isAdmin || contractRoles.isAdmin
+              });
+            });
           }
         }
       });
@@ -319,33 +215,33 @@ export const Web3Provider = ({ children }) => {
     return () => {
       // Cleanup if needed
     };
-  }, [isDevelopmentMode, account, web3, disconnectWallet]);
+  }, [isConnected, account, web3, disconnectWallet, getUserRoles]);
 
   // Refresh connection data
   const refreshConnection = useCallback(async () => {
-    if (!isConnected || !account) return;
+    if (!isConnected || !account || !isSignedIn) return;
 
     try {
-      if (isDevelopmentMode) {
-        // Refresh mock data
-        setBalance(MOCK_DATA.balance);
-        return;
-      }
-
-      // Refresh real data
+      // Refresh balance
       const balanceResult = await metaMaskService.getBalance(account);
       if (balanceResult.success) {
         setBalance(balanceResult.balance);
       }
 
       if (web3) {
-        const userRoles = await checkRoles(web3, account);
-        setRoles(userRoles);
+        const contractRoles = await checkRoles(web3, account);
+        const clerkRoles = getUserRoles();
+        setRoles({
+          isProducer: clerkRoles.isProducer || contractRoles.isProducer,
+          isBuyer: clerkRoles.isBuyer || contractRoles.isBuyer,
+          isCertifier: clerkRoles.isCertifier || contractRoles.isCertifier,
+          isAdmin: clerkRoles.isAdmin || contractRoles.isAdmin
+        });
       }
     } catch (error) {
       console.error('Failed to refresh connection:', error);
     }
-  }, [isConnected, account, isDevelopmentMode, web3]);
+  }, [isConnected, account, isSignedIn, web3, getUserRoles]);
 
   const value = {
     // Connection state
@@ -354,7 +250,10 @@ export const Web3Provider = ({ children }) => {
     contract,
     isConnected,
     isConnecting,
-    isDevelopmentMode,
+
+    // User info from Clerk
+    user,
+    isSignedIn,
 
     // Account info
     balance,
@@ -368,16 +267,13 @@ export const Web3Provider = ({ children }) => {
     connectToMetaMask,
     connectWallet: connectToMetaMask,
     disconnectWallet,
-    toggleMode,
     refreshConnection,
+    getUserRoles,
 
     // Utilities
     metaMaskService,
     formatAddress,
-    formatBalance,
-
-    // Mock data for development
-    mockData: MOCK_DATA
+    formatBalance
   };
 
   return (
@@ -385,15 +281,6 @@ export const Web3Provider = ({ children }) => {
       {children}
     </Web3Context.Provider>
   );
-};
-
-// Custom hook to use Web3Context
-export const useWeb3 = () => {
-  const context = useContext(Web3Context);
-  if (!context) {
-    throw new Error('useWeb3 must be used within a Web3Provider');
-  }
-  return context;
 };
 
 export { Web3Context };

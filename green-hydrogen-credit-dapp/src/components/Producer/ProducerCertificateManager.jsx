@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useUser } from '@clerk/clerk-react';
 import { toast } from 'react-toastify';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const ProducerCertificateManager = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const [certificates, setCertificates] = useState([]);
   const [showUploadForm, setShowUploadForm] = useState(false);

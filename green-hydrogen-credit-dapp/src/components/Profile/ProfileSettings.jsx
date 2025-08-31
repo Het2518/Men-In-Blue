@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useUser } from '@clerk/clerk-react';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const ProfileSettings = () => {
-  const { user, updateProfile } = useAuth();
+  const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState('personal');
   const [personalInfo, setPersonalInfo] = useState({
@@ -200,8 +200,8 @@ const ProfileSettings = () => {
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${activeSection === section.id
-                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                        : 'text-gray-300 hover:text-white hover:bg-white/5'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-white/5'
                       }`}
                   >
                     <span className="text-xl">{section.icon}</span>

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useUser } from '@clerk/clerk-react';
 import { formatNumber } from '../../utils/format';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const ProfileAnalytics = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [analytics, setAnalytics] = useState({});
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('30d');

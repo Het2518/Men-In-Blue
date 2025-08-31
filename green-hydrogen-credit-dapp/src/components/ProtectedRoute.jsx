@@ -1,19 +1,20 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useUser } from '@clerk/clerk-react';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isSignedIn, user } = useUser();
   const location = useLocation();
 
-  // If not authenticated, redirect to login
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  // If not authenticated, redirect to sign-in
+  if (!isSignedIn) {
+    return <Navigate to="/sign-in" state={{ from: location }} replace />;
   }
 
   // If specific role required, check if user has it
   if (requiredRole && user) {
-    const hasRole = user.role === requiredRole || user.role === 'admin';
+    const userRole = user.publicMetadata?.role || 'buyer';
+    const hasRole = userRole === requiredRole || userRole === 'admin';
     if (!hasRole) {
       return (
         <div className="min-h-screen flex items-center justify-center px-6">
@@ -24,7 +25,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
               You don't have the required role ({requiredRole}) to access this page.
               <br />
               <span className="text-sm text-gray-400 mt-2 block">
-                Current role: {user.role}
+                Current role: {userRole}
               </span>
             </p>
             <button

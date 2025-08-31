@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useUser } from '@clerk/clerk-react';
 import { formatNumber, truncateAddress } from '../../utils/format';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const ProfileDashboard = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const userRole = user?.publicMetadata?.role || 'buyer';
   const [stats, setStats] = useState({
     totalTransactions: 0,
     totalCredits: 0,
@@ -208,8 +209,8 @@ const ProfileDashboard = () => {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-4 font-medium transition-all duration-200 ${activeTab === tab
-                    ? 'text-white border-b-2 border-blue-400 bg-blue-500/10'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  ? 'text-white border-b-2 border-blue-400 bg-blue-500/10'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}

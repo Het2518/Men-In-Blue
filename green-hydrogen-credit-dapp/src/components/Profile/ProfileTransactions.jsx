@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useUser } from '@clerk/clerk-react';
 import { formatNumber, truncateAddress } from '../../utils/format';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const ProfileTransactions = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useUser } from '@clerk/clerk-react';
 import { formatNumber } from '../../utils/format';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const ProfilePortfolio = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [portfolio, setPortfolio] = useState({});
   const [holdings, setHoldings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -346,8 +346,8 @@ const ProfilePortfolio = () => {
               {recentActivity.map((activity) => (
                 <div key={activity.id} className="flex items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/10">
                   <div className={`p-2 rounded-lg ${activity.action === 'Purchase' ? 'bg-green-500/20 text-green-400' :
-                      activity.action === 'Retirement' ? 'bg-purple-500/20 text-purple-400' :
-                        'bg-blue-500/20 text-blue-400'
+                    activity.action === 'Retirement' ? 'bg-purple-500/20 text-purple-400' :
+                      'bg-blue-500/20 text-blue-400'
                     }`}>
                     <span className="text-sm">
                       {activity.action === 'Purchase' ? '💰' :

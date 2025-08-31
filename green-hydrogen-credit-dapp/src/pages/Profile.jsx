@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import ProfileDashboard from '../components/Profile/ProfileDashboard';
 import ProfileSettings from '../components/Profile/ProfileSettings';
 import ProfileAnalytics from '../components/Profile/ProfileAnalytics';
-import ProfileTransactions from '../components/Profile/ProfileAnalytics';
+import ProfileTransactions from '../components/Profile/ProfileTransactions';
 import ProfilePortfolio from '../components/Profile/ProfilePortfolio';
 import Button from '../components/common/Button';
 
 const Profile = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
+
+  // Get user role from Clerk metadata
+  const userRole = user?.publicMetadata?.role || 'buyer';
 
   // Get active tab from URL or default to dashboard
   const getActiveTab = () => {
@@ -66,11 +70,9 @@ const Profile = () => {
   };
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  const getRoleColor = (role) => {
+    await signOut();
+    navigate('/');
+  }; const getRoleColor = (role) => {
     const colors = {
       producer: 'from-green-500 to-emerald-600',
       buyer: 'from-blue-500 to-cyan-600',
@@ -101,16 +103,16 @@ const Profile = () => {
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             {/* User Info */}
             <div className="flex items-center gap-4">
-              <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${getRoleColor(user?.role)} flex items-center justify-center text-2xl shadow-xl border-2 border-white/20`}>
-                {getRoleIcon(user?.role)}
+              <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${getRoleColor(userRole)} flex items-center justify-center text-2xl shadow-xl border-2 border-white/20`}>
+                {getRoleIcon(userRole)}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">{user?.name || 'Anonymous User'}</h1>
+                <h1 className="text-2xl font-bold text-white">{user?.fullName || user?.firstName || 'Anonymous User'}</h1>
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 bg-gradient-to-r ${getRoleColor(user?.role)} text-white rounded-full text-sm font-medium shadow-lg`}>
-                    {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
+                  <span className={`px-3 py-1 bg-gradient-to-r ${getRoleColor(userRole)} text-white rounded-full text-sm font-medium shadow-lg`}>
+                    {userRole?.charAt(0).toUpperCase() + userRole?.slice(1)}
                   </span>
-                  <span className="text-gray-400 text-sm">{user?.email}</span>
+                  <span className="text-gray-400 text-sm">{user?.primaryEmailAddress?.emailAddress}</span>
                 </div>
               </div>
             </div>
@@ -137,8 +139,8 @@ const Profile = () => {
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center gap-3 px-6 py-4 font-medium transition-all duration-300 border-b-2 whitespace-nowrap ${activeTab === tab.id
-                    ? 'text-blue-400 border-blue-400 bg-blue-500/10'
-                    : 'text-gray-400 border-transparent hover:text-white hover:bg-white/5'
+                  ? 'text-blue-400 border-blue-400 bg-blue-500/10'
+                  : 'text-gray-400 border-transparent hover:text-white hover:bg-white/5'
                   }`}
               >
                 <span className="text-xl">{tab.icon}</span>

@@ -1,21 +1,19 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Web3Context } from '../contexts/Web3Context';
-import { useAuth } from '../hooks/useAuth';
+import { useUser } from '@clerk/clerk-react';
 import Button from '../components/common/Button';
 import logo from '../assets/images/green-hydrogen.svg';
 
 const Home = () => {
-  const { isDevelopmentMode } = useContext(Web3Context);
-  const { isAuthenticated } = useAuth();
+  const { isSignedIn } = useUser();
   const navigate = useNavigate();
 
   // Automatically redirect to dashboard if user is authenticated
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isSignedIn) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isSignedIn, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
@@ -53,48 +51,17 @@ const Home = () => {
 
         {/* Action buttons */}
         <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
-          <Link to="/login">
+          <Link to="/sign-in">
             <Button size="lg" className="min-w-[200px]">
               Get Started
             </Button>
           </Link>
-          <Link to="/signup">
+          <Link to="/sign-up">
             <Button variant="outline" size="lg" className="min-w-[200px]">
               Create Account
             </Button>
           </Link>
         </div>
-
-        {/* Development Mode Info */}
-        {isDevelopmentMode && (
-          <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-6 mb-12 max-w-2xl mx-auto">
-            <h3 className="text-yellow-300 font-semibold mb-3">🚧 Development Mode Active</h3>
-            <p className="text-yellow-300 text-sm mb-4">
-              You can test the app with demo accounts! No MetaMask required.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="bg-yellow-600/30 p-2 rounded">
-                <div className="font-semibold">Producer</div>
-                <div className="text-yellow-200">producer@hydrachain.com</div>
-              </div>
-              <div className="bg-blue-600/30 p-2 rounded">
-                <div className="font-semibold">Buyer</div>
-                <div className="text-blue-200">buyer@hydrachain.com</div>
-              </div>
-              <div className="bg-purple-600/30 p-2 rounded">
-                <div className="font-semibold">Certifier</div>
-                <div className="text-purple-200">certifier@hydrachain.com</div>
-              </div>
-              <div className="bg-red-600/30 p-2 rounded">
-                <div className="font-semibold">Admin</div>
-                <div className="text-red-200">admin@hydrachain.com</div>
-              </div>
-            </div>
-            <p className="text-yellow-200 text-xs mt-3">
-              Password for all demo accounts: <code className="bg-yellow-600/30 px-1 rounded">password123</code> (admin123 for admin)
-            </p>
-          </div>
-        )}
 
         {/* Features grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
