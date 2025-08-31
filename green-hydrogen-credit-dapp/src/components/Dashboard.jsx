@@ -1,212 +1,211 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Web3Context } from '../contexts/Web3Context';
-import { useAuth } from '../hooks/useAuth';
-import { getCurrentTokenId, getBalance } from '../utils/contract';
-import { fetchMetadata } from '../utils/ipfs';
-import { formatNumber, truncateAddress } from '../utils/format';
+import React from 'react';
+import { useWeb3 } from '../contexts/Web3Context';
+import WalletConnection from './common/WalletConnection';
 import Button from './common/Button';
-import LoadingSpinner from './common/LoadingSpinner';
+import './Dashboard.css';
 
-const Dashboard = () => {
-  const { web3 } = useContext(Web3Context);
-  const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+const Dashboard = ({ onNavigate }) => {
+  const {
+    isConnected,
+    balance,
+    networkName,
+    roles,
+    isDevelopmentMode
+  } = useWeb3();
 
-  const [tokenId, setTokenId] = useState(0);
-  const [balance, setBalance] = useState(0);
-  const [metadata, setMetadata] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const getRoleButtons = () => {
+    const buttons = [];
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
+    if (roles?.isAdmin) {
+      buttons.push(
+        <Button
+          key="admin"
+          onClick={() => onNavigate('admin')}
+          variant="primary"
+          className="role-button admin-button"
+        >
+          🔧 Admin Panel
+        </Button>
+      );
     }
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        if (web3 && user?.walletAddress) {
-          const currentTokenId = await getCurrentTokenId(web3);
-          setTokenId(currentTokenId);
-          const userBalance = await getBalance(web3, user.walletAddress, currentTokenId);
-          setBalance(userBalance);
-          const meta = await fetchMetadata(currentTokenId);
-          setMetadata(meta);
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [web3, user, navigate, isAuthenticated]);
-
-  const roleButtons = [
-    {
-      title: 'Producer Panel',
-      description: 'Issue new green hydrogen credits',
-      icon: '🏭',
-      color: 'from-green-500 to-green-600',
-      show: user?.role === 'producer' || user?.role === 'admin',
-      onClick: () => navigate('/producer')
-    },
-    {
-      title: 'Buyer Panel',
-      description: 'Purchase and manage credits',
-      icon: '💰',
-      color: 'from-blue-500 to-blue-600',
-      show: user?.role === 'buyer' || user?.role === 'admin',
-      onClick: () => navigate('/buyer')
-    },
-    {
-      title: 'Certifier Panel',
-      description: 'Verify oracle data',
-      icon: '🔍',
-      color: 'from-purple-500 to-purple-600',
-      show: user?.role === 'certifier' || user?.role === 'admin',
-      onClick: () => navigate('/certifier')
-    },
-    {
-      title: 'Admin Panel',
-      description: 'System administration',
-      icon: '⚙️',
-      color: 'from-yellow-500 to-yellow-600',
-      show: user?.role === 'admin',
-      onClick: () => navigate('/admin')
+    if (roles?.isProducer) {
+      buttons.push(
+        <Button
+          key="producer"
+          onClick={() => onNavigate('producer')}
+          variant="success"
+          className="role-button producer-button"
+        >
+          ⚡ Producer Dashboard
+        </Button>
+      );
     }
-  ];
 
-  const activeRoles = roleButtons.filter(role => role.show); if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading your dashboard..." />
-      </div>
-    );
-  }
+    if (roles?.isCertifier) {
+      buttons.push(
+        <Button
+          key="certifier"
+          onClick={() => onNavigate('certifier')}
+          variant="info"
+          className="role-button certifier-button"
+        >
+          🏅 Certifier Portal
+        </Button>
+      );
+    }
+
+    if (roles?.isBuyer) {
+      buttons.push(
+        <Button
+          key="buyer"
+          onClick={() => onNavigate('buyer')}
+          variant="warning"
+          className="role-button buyer-button"
+        >
+          🛒 Buyer Marketplace
+        </Button>
+      );
+    }
+
+    // If no specific roles, show all options (for development/testing)
+    if (buttons.length === 0) {
+      return [
+        <Button
+          key="admin"
+          onClick={() => onNavigate('admin')}
+          variant="outline"
+          className="role-button"
+        >
+          🔧 Admin Panel
+        </Button>,
+        <Button
+          key="producer"
+          onClick={() => onNavigate('producer')}
+          variant="outline"
+          className="role-button"
+        >
+          ⚡ Producer Dashboard
+        </Button>,
+        <Button
+          key="certifier"
+          onClick={() => onNavigate('certifier')}
+          variant="outline"
+          className="role-button"
+        >
+          🏅 Certifier Portal
+        </Button>,
+        <Button
+          key="buyer"
+          onClick={() => onNavigate('buyer')}
+          variant="outline"
+          className="role-button"
+        >
+          🛒 Buyer Marketplace
+        </Button>
+      ];
+    }
+
+    return buttons;
+  };
 
   return (
-    <div className="min-h-screen py-12 px-6 relative">
-      {/* Background particles */}
-      <div className="particles absolute inset-0">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="particle absolute animate-float" style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${i * 0.5}s`
-          }}></div>
-        ))}
+    <div className="dashboard">
+      <div className="dashboard-header">
+        <h1>🌱 Green Hydrogen Credit Dashboard</h1>
+        <p className="dashboard-subtitle">
+          Decentralized carbon credit trading platform for green hydrogen production
+        </p>
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-hydrogen-cyan to-hydrogen-blue bg-clip-text text-transparent">
-            Dashboard
-          </h1>
-          <p className="text-xl text-gray-300">Welcome back! Manage your green hydrogen credits.</p>
+      <WalletConnection />
 
-          {/* Quick Profile Link */}
-          <div className="mt-6">
-            <button
-              onClick={() => navigate('/profile')}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              <span>👤</span>
-              View Profile
-            </button>
+      {isConnected ? (
+        <div className="dashboard-content">
+          <div className="welcome-section">
+            <h2>Welcome to your dashboard!</h2>
+            <p>
+              {isDevelopmentMode ?
+                'You are in development mode. All features are available for testing.' :
+                'Select your role to access the corresponding features.'
+              }
+            </p>
           </div>
-        </div>
 
-        {/* Account Info Card */}
-        <div className="bg-hydrogen-dark/80 backdrop-blur-sm rounded-2xl border border-hydrogen-cyan/30 p-8 mb-8 shadow-2xl">
-          <h2 className="text-2xl font-semibold text-hydrogen-cyan mb-6">Account Information</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-hydrogen-dark/50 p-4 rounded-xl border border-hydrogen-cyan/20">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Wallet Address</h3>
-              <p className="text-white font-mono text-lg">{user?.walletAddress ? truncateAddress(user.walletAddress) : 'Not connected'}</p>
+          <div className="role-navigation">
+            <h3>Available Actions</h3>
+            <div className="role-buttons">
+              {getRoleButtons()}
             </div>
+          </div>
 
-            <div className="bg-hydrogen-dark/50 p-4 rounded-xl border border-hydrogen-cyan/20">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Current Balance</h3>
-              <p className="text-2xl font-bold text-hydrogen-cyan">{balance} Credits</p>
-            </div>
-
-            <div className="bg-hydrogen-dark/50 p-4 rounded-xl border border-hydrogen-cyan/20">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">User Roles</h3>
-              <div className="flex flex-wrap gap-2">
-                {user?.role === 'producer' && <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm">Producer</span>}
-                {user?.role === 'buyer' && <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">Buyer</span>}
-                {user?.role === 'certifier' && <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">Certifier</span>}
-                {user?.role === 'admin' && <span className="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-sm">Admin</span>}
-                {!user?.role &&
-                  <span className="px-3 py-1 bg-gray-500/20 text-gray-300 rounded-full text-sm">No role assigned</span>
-                }
+          <div className="system-info">
+            <div className="info-grid">
+              <div className="info-card">
+                <h4>Network</h4>
+                <p>{networkName || 'Unknown'}</p>
               </div>
+              <div className="info-card">
+                <h4>Balance</h4>
+                <p>{parseFloat(balance).toFixed(4)} ETH</p>
+              </div>
+              <div className="info-card">
+                <h4>Status</h4>
+                <p className="status-connected">Connected ✅</p>
+              </div>
+              {isDevelopmentMode && (
+                <div className="info-card dev-mode">
+                  <h4>Mode</h4>
+                  <p>🧪 Development</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
+      ) : (
+        <div className="connect-prompt">
+          <div className="prompt-content">
+            <h2>🔗 Connect Your Wallet</h2>
+            <p>
+              {isDevelopmentMode ?
+                'Development mode is active. The system is ready for testing.' :
+                'Please connect your MetaMask wallet to access the Green Hydrogen Credit platform.'
+              }
+            </p>
 
-        {/* Roles */}
-        <div className="mt-6">
-          <h3 className="text-sm font-medium text-gray-400 mb-3">Active Roles</h3>
-          <div className="flex flex-wrap gap-2">
-            {user?.role === 'producer' && <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm">Producer</span>}
-            {user?.role === 'buyer' && <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">Buyer</span>}
-            {user?.role === 'certifier' && <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">Certifier</span>}
-            {user?.role === 'admin' && <span className="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-sm">Admin</span>}
-            {!user?.role && <span className="px-3 py-1 bg-gray-500/20 text-gray-300 rounded-full text-sm">No role assigned</span>}
-          </div>
-        </div>
-
-        {metadata && (
-          <div className="mt-6">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Token Metadata</h3>
-            <p className="text-white">{metadata.name || 'No metadata available'}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Action Panels */}
-      {activeRoles.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-white mb-6 text-center">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeRoles.map((role, index) => (
-              <div
-                key={index}
-                className="bg-hydrogen-dark/80 backdrop-blur-sm rounded-xl border border-hydrogen-cyan/30 p-6 hover:border-hydrogen-cyan/60 transition-all duration-300 cursor-pointer hover:scale-105"
-                onClick={role.onClick}
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-4">{role.icon}</div>
-                  <h3 className="text-xl font-semibold text-white mb-2">{role.title}</h3>
-                  <p className="text-gray-400 mb-4">{role.description}</p>
-                  <Button
-                    className={`w-full bg-gradient-to-r ${role.color} text-white hover:scale-105 transition-all duration-300`}
-                  >
-                    Access Panel
-                  </Button>
+            <div className="features-preview">
+              <h3>Platform Features</h3>
+              <div className="features-grid">
+                <div className="feature-item">
+                  <span className="feature-icon">⚡</span>
+                  <div>
+                    <strong>Issue Credits</strong>
+                    <p>Producers can issue new hydrogen credits</p>
+                  </div>
+                </div>
+                <div className="feature-item">
+                  <span className="feature-icon">🏅</span>
+                  <div>
+                    <strong>Verify Production</strong>
+                    <p>Certifiers validate and approve credits</p>
+                  </div>
+                </div>
+                <div className="feature-item">
+                  <span className="feature-icon">🛒</span>
+                  <div>
+                    <strong>Trade Credits</strong>
+                    <p>Buyers can purchase and retire credits</p>
+                  </div>
+                </div>
+                <div className="feature-item">
+                  <span className="feature-icon">🔧</span>
+                  <div>
+                    <strong>Platform Management</strong>
+                    <p>Admins control system parameters</p>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* No roles message */}
-      {activeRoles.length === 0 && (
-        <div className="text-center py-12">
-          <div className="bg-hydrogen-dark/50 rounded-xl p-8 border border-hydrogen-cyan/20 max-w-md mx-auto">
-            <div className="text-6xl mb-4">🔒</div>
-            <h3 className="text-xl font-semibold text-white mb-4">No Access Roles</h3>
-            <p className="text-gray-400">
-              You don't have any roles assigned yet. Contact the admin to get access to the platform features.
-            </p>
+            </div>
           </div>
         </div>
       )}

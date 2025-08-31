@@ -42,7 +42,7 @@ const Home = () => {
 
         {/* Main heading */}
         <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-hydrogen-cyan to-hydrogen-blue bg-clip-text text-transparent">
-          HydraChain DApp
+          HydraChain
         </h1>
 
         {/* Subtitle */}

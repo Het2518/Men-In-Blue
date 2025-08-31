@@ -12,6 +12,21 @@ const BuyerMarketplace = () => {
   const [transactions, setTransactions] = useState([]);
   const [selectedCredit, setSelectedCredit] = useState(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showTradeModal, setShowTradeModal] = useState(false);
+  const [viewingItem, setViewingItem] = useState(null);
+  const [tradingItem, setTradingItem] = useState(null);
+
+  const [tradeForm, setTradeForm] = useState({
+    type: 'sell', // 'sell' or 'transfer'
+    quantity: '',
+    pricePerCredit: '',
+    recipient: '',
+    listingDuration: '30', // days
+    minimumPrice: '',
+    autoAcceptOffers: false,
+    escrowEnabled: true
+  });
 
   const [purchaseForm, setPurchaseForm] = useState({
     creditId: '',
@@ -294,6 +309,109 @@ const BuyerMarketplace = () => {
     setShowPurchaseModal(true);
   };
 
+  const handleViewCredit = (portfolioItem) => {
+    setViewingItem(portfolioItem);
+    setShowViewModal(true);
+  };
+
+  const handleTradeCredit = (portfolioItem) => {
+    setTradingItem(portfolioItem);
+    setTradeForm({
+      ...tradeForm,
+      quantity: portfolioItem.quantity.toString(),
+      pricePerCredit: portfolioItem.currentPrice.toFixed(2)
+    });
+    setShowTradeModal(true);
+  };
+
+  const submitTrade = async () => {
+    if (!tradeForm.quantity || parseInt(tradeForm.quantity) <= 0) {
+      toast.error('Please enter a valid quantity');
+      return;
+    }
+
+    if (parseInt(tradeForm.quantity) > tradingItem.quantity) {
+      toast.error('Quantity exceeds available credits');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      if (tradeForm.type === 'sell') {
+        const newTransaction = {
+          id: `TXN-${Date.now()}`,
+          type: 'sale',
+          creditId: tradingItem.creditId,
+          facilityName: tradingItem.facilityName,
+          quantity: parseInt(tradeForm.quantity),
+          pricePerCredit: parseFloat(tradeForm.pricePerCredit),
+          totalAmount: parseInt(tradeForm.quantity) * parseFloat(tradeForm.pricePerCredit),
+          date: new Date(),
+          status: 'pending',
+          transactionHash: `0x${Math.random().toString(16).substr(2, 8)}...${Math.random().toString(16).substr(2, 4)}`,
+          gasUsed: `${(Math.random() * 0.01).toFixed(3)} ETH`
+        };
+
+        setTransactions(prev => [newTransaction, ...prev]);
+
+        // Update portfolio
+        setMyPortfolio(prev => prev.map(item =>
+          item.id === tradingItem.id
+            ? { ...item, quantity: item.quantity - parseInt(tradeForm.quantity) }
+            : item
+        ).filter(item => item.quantity > 0));
+
+        toast.success(`Successfully listed ${tradeForm.quantity} credits for sale!`);
+      } else if (tradeForm.type === 'transfer') {
+        const newTransaction = {
+          id: `TXN-${Date.now()}`,
+          type: 'transfer',
+          creditId: tradingItem.creditId,
+          facilityName: tradingItem.facilityName,
+          quantity: parseInt(tradeForm.quantity),
+          pricePerCredit: 0,
+          totalAmount: 0,
+          date: new Date(),
+          status: 'completed',
+          recipient: tradeForm.recipient,
+          transactionHash: `0x${Math.random().toString(16).substr(2, 8)}...${Math.random().toString(16).substr(2, 4)}`,
+          gasUsed: `${(Math.random() * 0.005).toFixed(3)} ETH`
+        };
+
+        setTransactions(prev => [newTransaction, ...prev]);
+
+        // Update portfolio
+        setMyPortfolio(prev => prev.map(item =>
+          item.id === tradingItem.id
+            ? { ...item, quantity: item.quantity - parseInt(tradeForm.quantity) }
+            : item
+        ).filter(item => item.quantity > 0));
+
+        toast.success(`Successfully transferred ${tradeForm.quantity} credits!`);
+      }
+
+      setShowTradeModal(false);
+      setTradingItem(null);
+      setTradeForm({
+        type: 'sell',
+        quantity: '',
+        pricePerCredit: '',
+        recipient: '',
+        listingDuration: '30',
+        minimumPrice: '',
+        autoAcceptOffers: false,
+        escrowEnabled: true
+      });
+    } catch (error) {
+      toast.error('Trade failed. Please try again.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const calculateTotalCost = () => {
     if (!selectedCredit || !purchaseForm.quantity) return 0;
     const quantity = parseInt(purchaseForm.quantity);
@@ -503,8 +621,8 @@ const BuyerMarketplace = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 border-2 ${activeTab === tab.id
-                ? `${tabColors[tab.id]} bg-white/10`
-                : 'text-gray-400 border-transparent hover:text-white hover:bg-white/5'
+              ? `${tabColors[tab.id]} bg-white/10`
+              : 'text-gray-400 border-transparent hover:text-white hover:bg-white/5'
               }`}
           >
             <span className="mr-2">{tab.icon}</span>
@@ -751,17 +869,34 @@ const BuyerMarketplace = () => {
                   </div>
                 </div>
 
-                {!item.retired && (
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={() => retireCredit(item)}
-                      variant="outline"
-                      className="text-orange-400 border-orange-400 hover:bg-orange-400/10"
-                    >
-                      Retire for Offset
-                    </Button>
-                  </div>
-                )}
+                <div className="flex justify-end gap-3">
+                  <Button
+                    onClick={() => handleViewCredit(item)}
+                    variant="outline"
+                    className="text-blue-400 border-blue-400 hover:bg-blue-400/10"
+                  >
+                    View Details
+                  </Button>
+
+                  {!item.retired && (
+                    <>
+                      <Button
+                        onClick={() => handleTradeCredit(item)}
+                        variant="outline"
+                        className="text-green-400 border-green-400 hover:bg-green-400/10"
+                      >
+                        Trade/Sell
+                      </Button>
+                      <Button
+                        onClick={() => retireCredit(item)}
+                        variant="outline"
+                        className="text-orange-400 border-orange-400 hover:bg-orange-400/10"
+                      >
+                        Retire for Offset
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
 
@@ -1003,6 +1138,367 @@ const BuyerMarketplace = () => {
                   className="flex-1"
                 >
                   {loading ? <LoadingSpinner size="sm" /> : `Purchase for $${calculateTotalCost().toFixed(2)}`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Credit Modal */}
+      {showViewModal && viewingItem && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900/95 backdrop-blur-lg rounded-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-white/20">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">Credit Details</h2>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column - Basic Info */}
+              <div className="space-y-6">
+                <div className="bg-white/10 rounded-xl p-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="text-4xl">
+                      {viewingItem.energyType === 'hydrogen' ? '⚡' :
+                        viewingItem.energyType === 'solar' ? '☀️' :
+                          viewingItem.energyType === 'wind' ? '💨' : '💧'}
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">{viewingItem.facilityName}</h3>
+                      <p className="text-gray-400 capitalize">{viewingItem.energyType} Energy</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-400">Credit ID</p>
+                      <p className="text-white font-mono">{viewingItem.creditId}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Status</p>
+                      <p className={`font-medium ${viewingItem.retired ? 'text-orange-400' : 'text-green-400'}`}>
+                        {viewingItem.retired ? 'RETIRED' : 'ACTIVE'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Quantity Owned</p>
+                      <p className="text-white font-medium">{viewingItem.quantity} credits</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Purchase Date</p>
+                      <p className="text-white font-medium">{viewingItem.purchaseDate.toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financial Information */}
+                <div className="bg-white/10 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-white mb-4">Financial Overview</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Purchase Price per Credit</span>
+                      <span className="text-white font-medium">${viewingItem.purchasePrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Current Market Price</span>
+                      <span className="text-white font-medium">${viewingItem.currentPrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Total Investment</span>
+                      <span className="text-white font-medium">${(viewingItem.quantity * viewingItem.purchasePrice).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Current Value</span>
+                      <span className="text-white font-medium">${viewingItem.totalValue.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/20 pt-3">
+                      <span className="text-gray-400">Unrealized Gain/Loss</span>
+                      <span className={`font-bold ${viewingItem.unrealizedGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {viewingItem.unrealizedGain >= 0 ? '+' : ''}${viewingItem.unrealizedGain.toFixed(2)}
+                        ({((viewingItem.unrealizedGain / (viewingItem.totalValue - viewingItem.unrealizedGain)) * 100).toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Dividends Earned</span>
+                      <span className="text-green-400 font-medium">+${viewingItem.dividendsEarned.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Environmental & Technical */}
+              <div className="space-y-6">
+                <div className="bg-white/10 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-white mb-4">Environmental Impact</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">CO2 Offset</span>
+                      <span className="text-green-400 font-medium">{viewingItem.carbonOffset.toFixed(1)} tons</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Energy Generated</span>
+                      <span className="text-white font-medium">{viewingItem.quantity * 1000} kWh</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Renewable %</span>
+                      <span className="text-green-400 font-medium">100%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-white mb-4">Facility Details</h4>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-gray-400">Location</p>
+                      <p className="text-white font-medium">California, USA</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Certifications</p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs">REC Verified</span>
+                        <span className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs">ISO 14001</span>
+                        <span className="bg-purple-500/20 text-purple-400 px-2 py-1 rounded text-xs">Carbon Trust</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Technology</p>
+                      <p className="text-white font-medium">
+                        {viewingItem.energyType === 'hydrogen' ? 'Electrolysis' :
+                          viewingItem.energyType === 'solar' ? 'Photovoltaic' :
+                            viewingItem.energyType === 'wind' ? 'Turbine' : 'Hydroelectric'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-4">
+                  {!viewingItem.retired && (
+                    <Button
+                      onClick={() => {
+                        setShowViewModal(false);
+                        handleTradeCredit(viewingItem);
+                      }}
+                      className="flex-1"
+                    >
+                      Trade/Sell Credits
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowViewModal(false)}
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trade Credit Modal */}
+      {showTradeModal && tradingItem && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900/95 backdrop-blur-lg rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/20">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">Trade Credits</h2>
+              <button
+                onClick={() => setShowTradeModal(false)}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Trading Item Info */}
+            <div className="bg-white/10 rounded-xl p-4 mb-6">
+              <h3 className="text-lg font-semibold text-white mb-2">{tradingItem.facilityName}</h3>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-400">Available</p>
+                  <p className="text-white font-medium">{tradingItem.quantity} credits</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Current Price</p>
+                  <p className="text-white font-medium">${tradingItem.currentPrice.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Total Value</p>
+                  <p className="text-white font-medium">${tradingItem.totalValue.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {/* Trade Type */}
+              <div>
+                <label className="block text-white font-medium mb-3">Transaction Type</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setTradeForm({ ...tradeForm, type: 'sell' })}
+                    className={`p-4 rounded-xl border-2 transition-all ${tradeForm.type === 'sell'
+                      ? 'border-green-400 bg-green-400/10'
+                      : 'border-white/20 hover:border-white/30'}`}
+                  >
+                    <div className="text-2xl mb-2">💰</div>
+                    <p className="text-white font-medium">Sell</p>
+                    <p className="text-gray-400 text-sm">List for sale on marketplace</p>
+                  </button>
+
+                  <button
+                    onClick={() => setTradeForm({ ...tradeForm, type: 'transfer' })}
+                    className={`p-4 rounded-xl border-2 transition-all ${tradeForm.type === 'transfer'
+                      ? 'border-blue-400 bg-blue-400/10'
+                      : 'border-white/20 hover:border-white/30'}`}
+                  >
+                    <div className="text-2xl mb-2">🔄</div>
+                    <p className="text-white font-medium">Transfer</p>
+                    <p className="text-gray-400 text-sm">Send to another wallet</p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quantity */}
+              <div>
+                <label className="block text-white font-medium mb-2">Quantity</label>
+                <Input
+                  type="number"
+                  min="1"
+                  max={tradingItem.quantity}
+                  value={tradeForm.quantity}
+                  onChange={(e) => setTradeForm({ ...tradeForm, quantity: e.target.value })}
+                  placeholder="Enter quantity to trade"
+                />
+                <p className="text-gray-400 text-sm mt-1">Maximum: {tradingItem.quantity} credits</p>
+              </div>
+
+              {/* Sell-specific fields */}
+              {tradeForm.type === 'sell' && (
+                <>
+                  <div>
+                    <label className="block text-white font-medium mb-2">Price per Credit (USD)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={tradeForm.pricePerCredit}
+                      onChange={(e) => setTradeForm({ ...tradeForm, pricePerCredit: e.target.value })}
+                      placeholder="Enter price per credit"
+                    />
+                    <p className="text-gray-400 text-sm mt-1">Current market price: ${tradingItem.currentPrice.toFixed(2)}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-white font-medium mb-2">Listing Duration</label>
+                    <select
+                      value={tradeForm.listingDuration}
+                      onChange={(e) => setTradeForm({ ...tradeForm, listingDuration: e.target.value })}
+                      className="w-full p-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:border-green-400"
+                    >
+                      <option value="7">7 days</option>
+                      <option value="30">30 days</option>
+                      <option value="60">60 days</option>
+                      <option value="90">90 days</option>
+                    </select>
+                  </div>
+
+                  {/* Advanced Options */}
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h4 className="text-white font-medium mb-3">Advanced Options</h4>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="autoAcceptOffers"
+                          checked={tradeForm.autoAcceptOffers}
+                          onChange={(e) => setTradeForm({ ...tradeForm, autoAcceptOffers: e.target.checked })}
+                          className="w-4 h-4"
+                        />
+                        <label htmlFor="autoAcceptOffers" className="text-white">
+                          Auto-accept offers at listed price
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="escrowEnabledTrade"
+                          checked={tradeForm.escrowEnabled}
+                          onChange={(e) => setTradeForm({ ...tradeForm, escrowEnabled: e.target.checked })}
+                          className="w-4 h-4"
+                        />
+                        <label htmlFor="escrowEnabledTrade" className="text-white">
+                          Use escrow service for secure transaction
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Revenue Calculation */}
+                  {tradeForm.quantity && tradeForm.pricePerCredit && (
+                    <div className="bg-white/10 rounded-xl p-4">
+                      <h4 className="text-white font-semibold mb-3">Transaction Summary</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Credits ({tradeForm.quantity} × ${parseFloat(tradeForm.pricePerCredit || 0).toFixed(2)})</span>
+                          <span className="text-white">${((parseInt(tradeForm.quantity || 0)) * parseFloat(tradeForm.pricePerCredit || 0)).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Platform Fee (2.5%)</span>
+                          <span className="text-red-400">-${(((parseInt(tradeForm.quantity || 0)) * parseFloat(tradeForm.pricePerCredit || 0)) * 0.025).toFixed(2)}</span>
+                        </div>
+                        <div className="border-t border-white/20 pt-2 flex justify-between">
+                          <span className="text-white font-medium">You'll receive</span>
+                          <span className="text-green-400 font-bold">${(((parseInt(tradeForm.quantity || 0)) * parseFloat(tradeForm.pricePerCredit || 0)) * 0.975).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Transfer-specific fields */}
+              {tradeForm.type === 'transfer' && (
+                <div>
+                  <label className="block text-white font-medium mb-2">Recipient Address</label>
+                  <Input
+                    type="text"
+                    value={tradeForm.recipient}
+                    onChange={(e) => setTradeForm({ ...tradeForm, recipient: e.target.value })}
+                    placeholder="0x... (Ethereum address)"
+                  />
+                  <p className="text-gray-400 text-sm mt-1">Enter the wallet address to transfer credits to</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowTradeModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={submitTrade}
+                  disabled={loading || !tradeForm.quantity || parseInt(tradeForm.quantity) <= 0 ||
+                    (tradeForm.type === 'sell' && !tradeForm.pricePerCredit) ||
+                    (tradeForm.type === 'transfer' && !tradeForm.recipient)}
+                  className="flex-1"
+                >
+                  {loading ? <LoadingSpinner size="sm" /> :
+                    tradeForm.type === 'sell' ? 'List for Sale' : 'Transfer Credits'}
                 </Button>
               </div>
             </div>
