@@ -3,26 +3,14 @@ import { Web3Context } from '../contexts/Web3Context';
 import IssueCreditForm from '../components/Producer/IssueCreditForm';
 import { Navigate } from 'react-router-dom';
 
+import ProducerCertificateManager from '../components/Producer/ProducerCertificateManager';
+
 const Producer = () => {
-  const { roles } = useContext(Web3Context);
-
-  if (!roles.isProducer) {
-    return <Navigate to="/dashboard" />;
-  }
-
   return (
-    <div className="min-h-screen py-12">
-      <div className="particles">
-        <div className="particle"></div>
-        <div className="particle"></div>
-        <div className="particle"></div>
-        <div className="particle"></div>
-        <div className="particle"></div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+      <div className="container mx-auto px-4 py-8">
+        <ProducerCertificateManager />
       </div>
-      <h1 className="text-4xl font-bold text-hydrogen-green text-center mb-8 animate-pulse">
-        Producer Dashboard
-      </h1>
-      <IssueCreditForm />
     </div>
   );
 };

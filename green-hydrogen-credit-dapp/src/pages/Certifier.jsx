@@ -1,28 +1,11 @@
-import React, { useContext } from 'react';
-import { Web3Context } from '../contexts/Web3Context';
-import VerifyOracleForm from '../components/Certifier/VerifyOracleForm';
-import { Navigate } from 'react-router-dom';
+import CertifierVerificationSystem from '../components/Certifier/CertifierVerificationSystem';
 
 const Certifier = () => {
-  const { roles } = useContext(Web3Context);
-
-  if (!roles.isCertifier) {
-    return <Navigate to="/dashboard" />;
-  }
-
   return (
-    <div className="min-h-screen py-12">
-      <div className="particles">
-        <div className="particle"></div>
-        <div className="particle"></div>
-        <div className="particle"></div>
-        <div className="particle"></div>
-        <div className="particle"></div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-blue-900">
+      <div className="container mx-auto px-4 py-8">
+        <CertifierVerificationSystem />
       </div>
-      <h1 className="text-4xl font-bold text-hydrogen-purple text-center mb-8 animate-pulse">
-        Certifier Dashboard
-      </h1>
-      <VerifyOracleForm />
     </div>
   );
 };
