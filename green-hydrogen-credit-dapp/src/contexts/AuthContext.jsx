@@ -1,185 +1,102 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import api from '../services/api';
 
 const AuthContext = createContext();
-
-// Mock user database for development
-const MOCK_USERS = [
-  {
-    id: '1',
-    email: 'producer@hydrachain.com',
-    password: 'password123',
-    name: 'John Producer',
-    role: 'producer',
-    company: 'Green Energy Co.',
-    phone: '+1234567890',
-    walletAddress: '0x742d35Cc5aF7482C6d2a5d5B0E8eE73c7D8a0Cd1',
-    isVerified: true
-  },
-  {
-    id: '2',
-    email: 'buyer@hydrachain.com',
-    password: 'password123',
-    name: 'Sarah Buyer',
-    role: 'buyer',
-    company: 'Industrial Corp.',
-    phone: '+1234567891',
-    walletAddress: '0x123d35Cc5aF7482C6d2a5d5B0E8eE73c7D8a0Cd2',
-    isVerified: true
-  },
-  {
-    id: '3',
-    email: 'certifier@hydrachain.com',
-    password: 'password123',
-    name: 'Mike Certifier',
-    role: 'certifier',
-    company: 'Certification Authority',
-    phone: '+1234567892',
-    walletAddress: '0x456d35Cc5aF7482C6d2a5d5B0E8eE73c7D8a0Cd3',
-    isVerified: true
-  },
-  {
-    id: '4',
-    email: 'admin@hydrachain.com',
-    password: 'admin123',
-    name: 'Alex Admin',
-    role: 'admin',
-    company: 'HydraChain',
-    phone: '+1234567893',
-    walletAddress: '0x789d35Cc5aF7482C6d2a5d5B0E8eE73c7D8a0Cd4',
-    isVerified: true
-  }
-];
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Check for saved session on app load
   useEffect(() => {
-    const savedUser = localStorage.getItem('hydrachain_user');
-    if (savedUser) {
+    const loadUserFromStorage = () => {
+      setLoading(true);
       try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-        setIsAuthenticated(true);
-        toast.info(`Welcome back, ${userData.name}!`);
+        const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        if (token && storedUser) {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+          setIsAuthenticated(true);
+          // Set the token for subsequent API calls
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
       } catch (error) {
-        console.error('Error loading saved session:', error);
-        localStorage.removeItem('hydrachain_user');
+        console.error('Failed to load user from storage', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    loadUserFromStorage();
   }, []);
 
-  // Login function
-  const login = async (email, password) => {
+  const login = async (role, walletAddress) => {
+    setLoading(true);
     try {
-      setLoading(true);
-
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Find user in mock database
-      const foundUser = MOCK_USERS.find(u =>
-        u.email.toLowerCase() === email.toLowerCase() && u.password === password
-      );
-
-      if (!foundUser) {
-        throw new Error('Invalid email or password');
-      }
-
-      if (!foundUser.isVerified) {
-        throw new Error('Account not verified. Please contact admin.');
-      }
-
-      // Remove password from user object
-      const { password: _, ...userWithoutPassword } = foundUser;
-
-      setUser(userWithoutPassword);
+      const response = await api.post(`/${role}/login`, { walletAddress });
+      
+      // Assuming the backend returns { user, accessToken }
+      const { user: userData, accessToken } = response.data;
+      
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+      api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      
+      setUser(userData);
       setIsAuthenticated(true);
-
-      // Save to localStorage
-      localStorage.setItem('hydrachain_user', JSON.stringify(userWithoutPassword));
-
-      toast.success(`Welcome, ${foundUser.name}!`);
-      return { success: true, user: userWithoutPassword };
-
+      toast.success(`Welcome back, ${userData.companyName || userData.organizationName}!`);
+      
+      return { success: true };
     } catch (error) {
-      toast.error(error.message);
-      return { success: false, error: error.message };
+      const errorMessage = error.response?.data?.message || 'Login failed. Please check your credentials.';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
   };
 
-  // Signup function
-  const signup = async (userData) => {
+  const signup = async (role, payload) => {
+    setLoading(true);
     try {
-      setLoading(true);
-
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Check if email already exists
-      const existingUser = MOCK_USERS.find(u =>
-        u.email.toLowerCase() === userData.email.toLowerCase()
-      );
-
-      if (existingUser) {
-        throw new Error('Email already registered');
-      }
-
-      // Create new user
-      const newUser = {
-        id: Date.now().toString(),
-        ...userData,
-        walletAddress: `0x${Math.random().toString(16).substr(2, 40)}`,
-        isVerified: true // Auto-verify in development
-      };
-
-      // Add to mock database
-      MOCK_USERS.push(newUser);
-
-      // Remove password from user object
-      const { password: _, ...userWithoutPassword } = newUser;
-
-      setUser(userWithoutPassword);
-      setIsAuthenticated(true);
-
-      // Save to localStorage
-      localStorage.setItem('hydrachain_user', JSON.stringify(userWithoutPassword));
-
-      toast.success(`Account created successfully! Welcome, ${newUser.name}!`);
-      return { success: true, user: userWithoutPassword };
-
+      // The backend doc says register doesn't return tokens, so user will have to login after.
+      await api.post(`/${role}/register`, payload);
+      toast.success('Registration successful! Please log in to continue.');
+      
+      // Let's assume registration does not automatically log the user in.
+      // If it did, we would handle tokens and user data here.
+      return { success: true };
     } catch (error) {
-      toast.error(error.message);
-      return { success: false, error: error.message };
+      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
   };
 
-  // Logout function
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('hydrachain_user');
-    toast.info('Logged out successfully');
-  };
-
-  // Get user roles for Web3Context integration
-  const getUserRoles = () => {
-    if (!user) return { isProducer: false, isBuyer: false, isCertifier: false, isAdmin: false };
-
-    return {
-      isProducer: user.role === 'producer' || user.role === 'admin',
-      isBuyer: user.role === 'buyer' || user.role === 'admin',
-      isCertifier: user.role === 'certifier' || user.role === 'admin',
-      isAdmin: user.role === 'admin'
-    };
+  const logout = async () => {
+    setLoading(true);
+    try {
+        if (user && user.role) {
+            // The API requires a role for logout
+            await api.post(`/${user.role}/logout`);
+        }
+    } catch (error) {
+        // Even if API call fails, we should log the user out on the client-side
+        console.error('Logout API call failed', error);
+    } finally {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        delete api.defaults.headers.common['Authorization'];
+        setUser(null);
+        setIsAuthenticated(false);
+        setLoading(false);
+        toast.info('You have been logged out.');
+    }
   };
 
   const value = {
@@ -189,8 +106,6 @@ export const AuthProvider = ({ children }) => {
     login,
     signup,
     logout,
-    getUserRoles,
-    mockUsers: MOCK_USERS // For demo purposes
   };
 
   return (

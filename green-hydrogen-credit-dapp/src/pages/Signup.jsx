@@ -1,31 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useWeb3 } from '../contexts/Web3Context'; // Assuming a hook for Web3 context
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import Notification from '../components/common/Notification';
 import logo from '../assets/images/green-hydrogen.svg';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    company: '',
-    phone: '',
-    role: 'buyer' // Default role
+    role: 'producer',
+    companyName: '',
+    contactEmail: '',
+    walletAddress: '',
+    industrySector: '', // For Buyer
+    accreditationId: '', // For Certifier
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [notification, setNotification] = useState({ message: '', type: '' });
 
   const { signup, loading } = useAuth();
+  const { account, connectWallet } = useWeb3();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (account) {
+      setFormData((prev) => ({ ...prev, walletAddress: account }));
+      if (errors.walletAddress) {
+        setErrors((prev) => ({ ...prev, walletAddress: '' }));
+      }
+    }
+  }, [account, errors.walletAddress]);
+
+
   const roleOptions = [
-    { value: 'producer', label: 'Producer - Issue green hydrogen credits', icon: '🏭' },
-    { value: 'buyer', label: 'Buyer - Purchase and retire credits', icon: '💰' },
-    { value: 'certifier', label: 'Certifier - Verify and audit credits', icon: '🔍' }
+    { value: 'producer', label: 'Producer', description: 'Issue green hydrogen credits' },
+    { value: 'buyer', label: 'Buyer', description: 'Purchase and retire credits' },
+    { value: 'certifier', label: 'Certifier', description: 'Verify and audit credits' }
   ];
 
   const handleChange = (e) => {
@@ -34,52 +46,47 @@ const Signup = () => {
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleWalletConnect = async () => {
+    try {
+      await connectWallet();
+    } catch (error) {
+      console.error("Failed to connect wallet:", error);
+      setNotification({ message: 'Failed to connect wallet.', type: 'error' });
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
+    const { role, contactEmail, walletAddress, companyName, accreditationId } = formData;
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Full name is required';
+    if (!contactEmail) {
+      newErrors.contactEmail = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(contactEmail)) {
+      newErrors.contactEmail = 'Email is invalid';
     }
 
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+    if (!walletAddress) {
+      newErrors.walletAddress = 'Wallet address is required. Please connect your wallet.';
     }
 
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    if (role === 'producer' || role === 'buyer') {
+      if (!companyName.trim()) {
+        newErrors.companyName = 'Company name is required';
+      }
     }
 
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    if (!formData.company.trim()) {
-      newErrors.company = 'Company name is required';
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^\+?[\d\s-()]+$/.test(formData.phone)) {
-      newErrors.phone = 'Phone number is invalid';
-    }
-
-    if (!formData.role) {
-      newErrors.role = 'Please select a role';
+    if (role === 'certifier') {
+      if (!companyName.trim()) { // Using companyName for organizationName
+        newErrors.companyName = 'Organization name is required';
+      }
+      if (!accreditationId.trim()) {
+        newErrors.accreditationId = 'Accreditation ID is required';
+      }
     }
 
     setErrors(newErrors);
@@ -88,185 +95,203 @@ const Signup = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!validateForm()) {
       return;
     }
 
-    const { confirmPassword: _, ...userData } = formData;
-    const result = await signup(userData);
+    setNotification({ message: '', type: '' });
+
+    // Prepare data based on role
+    const { role, ...data } = formData;
+    let payload;
+    switch (role) {
+      case 'producer':
+        payload = {
+          companyName: data.companyName,
+          contactEmail: data.contactEmail,
+          walletAddress: data.walletAddress,
+        };
+        break;
+      case 'buyer':
+        payload = {
+          companyName: data.companyName,
+          contactEmail: data.contactEmail,
+          walletAddress: data.walletAddress,
+          industrySector: data.industrySector,
+        };
+        break;
+      case 'certifier':
+        payload = {
+          organizationName: data.companyName, // Map companyName to organizationName
+          contactEmail: data.contactEmail,
+          walletAddress: data.walletAddress,
+          accreditationId: data.accreditationId,
+        };
+        break;
+      default:
+        setNotification({ message: 'Invalid role selected.', type: 'error' });
+        return;
+    }
+
+    const result = await signup(role, payload);
 
     if (result.success) {
-      navigate('/dashboard', { replace: true });
+      setNotification({ message: 'Signup successful! Redirecting...', type: 'success' });
+      setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
+    } else {
+      setNotification({ message: result.error || 'Signup failed. Please try again.', type: 'error' });
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Creating account..." />
-      </div>
-    );
-  }
+  const getRoleSpecificFields = () => {
+    switch (formData.role) {
+      case 'producer':
+        return (
+          <Input
+            label="Company Name"
+            id="companyName"
+            name="companyName"
+            value={formData.companyName}
+            onChange={handleChange}
+            error={errors.companyName}
+            required
+          />
+        );
+      case 'buyer':
+        return (
+          <>
+            <Input
+              label="Company Name"
+              id="companyName"
+              name="companyName"
+              value={formData.companyName}
+              onChange={handleChange}
+              error={errors.companyName}
+              required
+            />
+            <Input
+              label="Industry Sector (Optional)"
+              id="industrySector"
+              name="industrySector"
+              value={formData.industrySector}
+              onChange={handleChange}
+              error={errors.industrySector}
+            />
+          </>
+        );
+      case 'certifier':
+        return (
+          <>
+            <Input
+              label="Organization Name"
+              id="companyName" // Reusing the state field
+              name="companyName"
+              value={formData.companyName}
+              onChange={handleChange}
+              error={errors.companyName}
+              required
+            />
+            <Input
+              label="Accreditation ID"
+              id="accreditationId"
+              name="accreditationId"
+              value={formData.accreditationId}
+              onChange={handleChange}
+              error={errors.accreditationId}
+              required
+            />
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-12 relative overflow-hidden">
-      {/* Background particles */}
-      <div className="particles absolute inset-0">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="particle absolute animate-float" style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${i * 0.3}s`
-          }}></div>
-        ))}
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center py-12 sm:px-6 lg:px-8">
+      {notification.message && <Notification message={notification.message} type={notification.type} onClear={() => setNotification({ message: '', type: '' })} />}
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <img className="mx-auto h-12 w-auto" src={logo} alt="HydraChain Logo" />
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          Create your account
+        </h2>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Or{' '}
+          <Link to="/login" className="font-medium text-green-600 hover:text-green-500">
+            sign in to your existing account
+          </Link>
+        </p>
       </div>
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="bg-hydrogen-dark/80 backdrop-blur-sm rounded-2xl border border-hydrogen-cyan/30 p-8 shadow-2xl">
-          {/* Logo and Title */}
-          <div className="text-center mb-8">
-            <img src={logo} alt="HydraChain" className="w-16 h-16 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-white mb-2">Join HydraChain</h1>
-            <p className="text-gray-400">Create your account to start trading</p>
-          </div>
-
-          {/* Signup Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <form className="space-y-6" onSubmit={handleSubmit} noValidate>
             <div>
-              <Input
-                type="text"
-                name="name"
-                placeholder="Full Name"
-                value={formData.name}
-                onChange={handleChange}
-                error={errors.name}
-                className="w-full"
-              />
-            </div>
-
-            <div>
-              <Input
-                type="email"
-                name="email"
-                placeholder="Email Address"
-                value={formData.email}
-                onChange={handleChange}
-                error={errors.email}
-                className="w-full"
-              />
-            </div>
-
-            <div>
-              <Input
-                type="text"
-                name="company"
-                placeholder="Company Name"
-                value={formData.company}
-                onChange={handleChange}
-                error={errors.company}
-                className="w-full"
-              />
-            </div>
-
-            <div>
-              <Input
-                type="tel"
-                name="phone"
-                placeholder="Phone Number"
-                value={formData.phone}
-                onChange={handleChange}
-                error={errors.phone}
-                className="w-full"
-              />
-            </div>
-
-            {/* Role Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-3">Select Your Role</label>
-              <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Select your role</label>
+              <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {roleOptions.map((option) => (
-                  <label key={option.value} className="flex items-start space-x-3 p-3 rounded-lg border border-gray-600 hover:border-hydrogen-cyan/50 cursor-pointer transition-colors">
-                    <input
-                      type="radio"
-                      name="role"
-                      value={option.value}
-                      checked={formData.role === option.value}
-                      onChange={handleChange}
-                      className="mt-1 text-hydrogen-cyan"
-                    />
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg">{option.icon}</span>
-                        <span className="text-white font-medium capitalize">{option.value}</span>
-                      </div>
-                      <p className="text-sm text-gray-400">{option.label.split(' - ')[1]}</p>
-                    </div>
-                  </label>
+                  <div
+                    key={option.value}
+                    onClick={() => handleChange({ target: { name: 'role', value: option.value } })}
+                    className={`relative flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                      formData.role === option.value ? 'border-green-500 ring-2 ring-green-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <span className="text-2xl">{option.icon}</span>
+                    <span className="mt-2 font-semibold text-gray-800">{option.label}</span>
+                    <p className="text-xs text-center text-gray-500">{option.description}</p>
+                  </div>
                 ))}
               </div>
-              {errors.role && <p className="text-red-400 text-sm mt-1">{errors.role}</p>}
             </div>
 
-            <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                placeholder="Password"
-                value={formData.password}
+                label="Contact Email"
+                id="contactEmail"
+                name="contactEmail"
+                type="email"
+                value={formData.contactEmail}
                 onChange={handleChange}
-                error={errors.password}
-                className="w-full pr-12"
+                error={errors.contactEmail}
+                required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-              >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
-              </button>
+              {getRoleSpecificFields()}
             </div>
 
             <div>
-              <Input
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                error={errors.confirmPassword}
-                className="w-full"
-              />
+              <label htmlFor="walletAddress" className="block text-sm font-medium text-gray-700">
+                Wallet Address
+              </label>
+              <div className="mt-1 flex rounded-md shadow-sm">
+                <Input
+                  id="walletAddress"
+                  name="walletAddress"
+                  value={formData.walletAddress}
+                  onChange={handleChange}
+                  error={errors.walletAddress}
+                  required
+                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-l-md"
+                  disabled
+                  placeholder="Connect your wallet to populate"
+                />
+                <Button
+                  type="button"
+                  onClick={handleWalletConnect}
+                  className="-ml-px relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100"
+                >
+                  {account ? 'Connected' : 'Connect Wallet'}
+                </Button>
+              </div>
+              {errors.walletAddress && <p className="mt-2 text-sm text-red-600">{errors.walletAddress}</p>}
             </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-hydrogen-cyan to-hydrogen-blue text-white py-3 rounded-xl font-semibold hover:scale-105 transition-all duration-300"
-            >
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </Button>
+            <div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? <LoadingSpinner /> : 'Sign Up'}
+              </Button>
+            </div>
           </form>
-
-          {/* Sign In Link */}
-          <div className="mt-8 text-center">
-            <p className="text-gray-400">
-              Already have an account?{' '}
-              <Link to="/login" className="text-hydrogen-cyan hover:text-white transition-colors font-semibold">
-                Sign in
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        {/* Back to Home */}
-        <div className="text-center mt-6">
-          <Link
-            to="/"
-            className="text-gray-400 hover:text-white transition-colors text-sm"
-          >
-            ← Back to Home
-          </Link>
         </div>
       </div>
     </div>
