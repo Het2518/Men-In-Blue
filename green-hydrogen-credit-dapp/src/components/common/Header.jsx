@@ -24,7 +24,8 @@ const Header = () => {
     { path: '/producer', label: 'Producer', show: isAuthenticated && (user?.role === 'producer' || user?.role === 'admin') },
     { path: '/buyer', label: 'Buyer', show: isAuthenticated && (user?.role === 'buyer' || user?.role === 'admin') },
     { path: '/certifier', label: 'Certifier', show: isAuthenticated && (user?.role === 'certifier' || user?.role === 'admin') },
-    { path: '/admin', label: 'Admin', show: isAuthenticated && user?.role === 'admin' }
+    { path: '/admin', label: 'Admin', show: isAuthenticated && user?.role === 'admin' },
+    { path: '/profile', label: 'Profile', show: isAuthenticated }
   ];
 
   return (
@@ -49,7 +50,7 @@ const Header = () => {
               <Link
                 key={path}
                 to={path}
-                className={`px-3 py-2 rounded-lg transition-all duration-300 ${location.pathname === path
+                className={`px-3 py-2 rounded-lg transition-all duration-300 ${location.pathname === path || location.pathname.startsWith(path + '/')
                   ? 'bg-hydrogen-cyan text-hydrogen-dark font-semibold'
                   : 'text-gray-300 hover:text-white hover:bg-hydrogen-dark/50'
                   }`}

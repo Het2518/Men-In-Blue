@@ -13,6 +13,7 @@ import Producer from './pages/Producer';
 import Buyer from './pages/Buyer';
 import Certifier from './pages/Certifier';
 import Admin from './pages/Admin';
+import Profile from './pages/Profile';
 import 'react-toastify/dist/ReactToastify.css';
 
 const App = () => {
@@ -72,6 +73,24 @@ const App = () => {
                   element={
                     <ProtectedRoute requiredRole="admin">
                       <Admin />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Profile routes */}
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile/:tab"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
                     </ProtectedRoute>
                   }
                 />

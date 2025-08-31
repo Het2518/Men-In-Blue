@@ -108,6 +108,17 @@ const Dashboard = () => {
             Dashboard
           </h1>
           <p className="text-xl text-gray-300">Welcome back! Manage your green hydrogen credits.</p>
+
+          {/* Quick Profile Link */}
+          <div className="mt-6">
+            <button
+              onClick={() => navigate('/profile')}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              <span>👤</span>
+              View Profile
+            </button>
+          </div>
         </div>
 
         {/* Account Info Card */}
@@ -121,76 +132,84 @@ const Dashboard = () => {
             </div>
 
             <div className="bg-hydrogen-dark/50 p-4 rounded-xl border border-hydrogen-cyan/20">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Current Token ID</h3>
-              <p className="text-hydrogen-cyan font-semibold text-lg">{tokenId}</p>
+              <h3 className="text-sm font-medium text-gray-400 mb-2">Current Balance</h3>
+              <p className="text-2xl font-bold text-hydrogen-cyan">{balance} Credits</p>
             </div>
 
             <div className="bg-hydrogen-dark/50 p-4 rounded-xl border border-hydrogen-cyan/20">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Credit Balance</h3>
-              <p className="text-green-400 font-semibold text-lg">{formatNumber(balance)} credits</p>
+              <h3 className="text-sm font-medium text-gray-400 mb-2">User Roles</h3>
+              <div className="flex flex-wrap gap-2">
+                {user?.role === 'producer' && <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm">Producer</span>}
+                {user?.role === 'buyer' && <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">Buyer</span>}
+                {user?.role === 'certifier' && <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">Certifier</span>}
+                {user?.role === 'admin' && <span className="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-sm">Admin</span>}
+                {!user?.role &&
+                  <span className="px-3 py-1 bg-gray-500/20 text-gray-300 rounded-full text-sm">No role assigned</span>
+                }
+              </div>
             </div>
           </div>
-
-          {/* Roles */}
-          <div className="mt-6">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Active Roles</h3>
-            <div className="flex flex-wrap gap-2">
-              {user?.role === 'producer' && <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm">Producer</span>}
-              {user?.role === 'buyer' && <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">Buyer</span>}
-              {user?.role === 'certifier' && <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">Certifier</span>}
-              {user?.role === 'admin' && <span className="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-sm">Admin</span>}
-              {!user?.role && <span className="px-3 py-1 bg-gray-500/20 text-gray-300 rounded-full text-sm">No role assigned</span>}
-            </div>
-          </div>
-
-          {metadata && (
-            <div className="mt-6">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Token Metadata</h3>
-              <p className="text-white">{metadata.name || 'No metadata available'}</p>
-            </div>
-          )}
         </div>
 
-        {/* Action Panels */}
-        {activeRoles.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-white mb-6 text-center">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeRoles.map((role, index) => (
-                <div
-                  key={index}
-                  className="bg-hydrogen-dark/80 backdrop-blur-sm rounded-xl border border-hydrogen-cyan/30 p-6 hover:border-hydrogen-cyan/60 transition-all duration-300 cursor-pointer hover:scale-105"
-                  onClick={role.onClick}
-                >
-                  <div className="text-center">
-                    <div className="text-4xl mb-4">{role.icon}</div>
-                    <h3 className="text-xl font-semibold text-white mb-2">{role.title}</h3>
-                    <p className="text-gray-400 mb-4">{role.description}</p>
-                    <Button
-                      className={`w-full bg-gradient-to-r ${role.color} text-white hover:scale-105 transition-all duration-300`}
-                    >
-                      Access Panel
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Roles */}
+        <div className="mt-6">
+          <h3 className="text-sm font-medium text-gray-400 mb-3">Active Roles</h3>
+          <div className="flex flex-wrap gap-2">
+            {user?.role === 'producer' && <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm">Producer</span>}
+            {user?.role === 'buyer' && <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">Buyer</span>}
+            {user?.role === 'certifier' && <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">Certifier</span>}
+            {user?.role === 'admin' && <span className="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-sm">Admin</span>}
+            {!user?.role && <span className="px-3 py-1 bg-gray-500/20 text-gray-300 rounded-full text-sm">No role assigned</span>}
           </div>
-        )}
+        </div>
 
-        {/* No roles message */}
-        {activeRoles.length === 0 && (
-          <div className="text-center py-12">
-            <div className="bg-hydrogen-dark/50 rounded-xl p-8 border border-hydrogen-cyan/20 max-w-md mx-auto">
-              <div className="text-6xl mb-4">🔒</div>
-              <h3 className="text-xl font-semibold text-white mb-4">No Access Roles</h3>
-              <p className="text-gray-400">
-                You don't have any roles assigned yet. Contact the admin to get access to the platform features.
-              </p>
-            </div>
+        {metadata && (
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Token Metadata</h3>
+            <p className="text-white">{metadata.name || 'No metadata available'}</p>
           </div>
         )}
       </div>
+
+      {/* Action Panels */}
+      {activeRoles.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-white mb-6 text-center">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeRoles.map((role, index) => (
+              <div
+                key={index}
+                className="bg-hydrogen-dark/80 backdrop-blur-sm rounded-xl border border-hydrogen-cyan/30 p-6 hover:border-hydrogen-cyan/60 transition-all duration-300 cursor-pointer hover:scale-105"
+                onClick={role.onClick}
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-4">{role.icon}</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">{role.title}</h3>
+                  <p className="text-gray-400 mb-4">{role.description}</p>
+                  <Button
+                    className={`w-full bg-gradient-to-r ${role.color} text-white hover:scale-105 transition-all duration-300`}
+                  >
+                    Access Panel
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No roles message */}
+      {activeRoles.length === 0 && (
+        <div className="text-center py-12">
+          <div className="bg-hydrogen-dark/50 rounded-xl p-8 border border-hydrogen-cyan/20 max-w-md mx-auto">
+            <div className="text-6xl mb-4">🔒</div>
+            <h3 className="text-xl font-semibold text-white mb-4">No Access Roles</h3>
+            <p className="text-gray-400">
+              You don't have any roles assigned yet. Contact the admin to get access to the platform features.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
