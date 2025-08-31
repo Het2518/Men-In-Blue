@@ -34,7 +34,7 @@ const Header = () => {
         className="text-2xl font-bold text-hydrogen-cyan cursor-pointer hover:text-white transition-colors duration-300"
         onClick={handleLogoClick}
       >
-        HydraChain DApp
+        HydraChain
         {isDevelopmentMode && (
           <span className="ml-2 text-xs bg-yellow-500 text-black px-2 py-1 rounded-full">
             DEV MODE
